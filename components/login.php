@@ -1,0 +1,20 @@
+    <login-form
+        class="auth-forms"
+            action="{{ route('login.submit') }}"
+            csrf="{{ csrf_token() }}"
+            theme="dark"
+            border-radius="12px"
+            lost-password-url="{{ route('forgetpwd.form') }}"
+            register-url="{{ route('register.form') }}"
+            email-placeholder="{{ __('common.email') }}"
+            password-placeholder="{{ __('common.password') }}"
+            button-text="{{ __('common.sign_in') }}"
+            dont-have-account-text="{{ __('common.dont_have_account') }}"
+            sign-up-text="{{ __('common.sign_up') }}"
+            lost-password-text="{{ __('common.lost_password_text') }}"
+            error-message="{{ session('loginerror') }}"
+            email-required-text="{{ __('common.email_required') }}"
+            email-invalid-text="{{ __('common.email_invalid') }}"
+            password-required-text="{{ __('common.password_required') }}"
+        >
+    </login-form>

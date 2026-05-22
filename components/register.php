@@ -1,0 +1,35 @@
+<register-form
+          class="auth-forms"
+          action="{{ route('register.submit') }}"
+          csrf="{{ csrf_token() }}"
+          theme="dark"
+          border-radius="12px"
+          login-url="{{ route('login.form') }}"
+          terms-url="{{ route('pages', 'terms-conditions') }}"
+          first-name-placeholder="{{ __('common.name') }}"
+          last-name-placeholder="{{ __('common.last_name') }}"
+          email-placeholder="{{ __('common.email') }}"
+          phone-placeholder="{{ __('common.phone') }}"
+          password-placeholder="{{ __('common.password') }}"
+          confirm-password-placeholder="{{ __('common.confirm_password') }}"
+          captcha-placeholder="{{ __('common.fill_captcha') }}"
+          button-text="{{ __('common.sign_up') }}"
+          already-have-account-text="{{ __('common.already_have_account') }}"
+          sign-in-text="{{ __('common.sign_in') }}"
+          error-message="{{ session('error') }}"
+          captcha-error-message="@error('captcha') {{ $message }} @enderror"
+          first-name-required-text="{{ __('common.first_name_required') }}"
+          last-name-required-text="{{ __('common.last_name_required') }}"
+          phone-required-text="{{ __('common.phone_required') }}"
+          email-required-text="{{ __('common.email_required') }}"
+          email-invalid-text="{{ __('common.email_invalid') }}"
+          password-required-text="{{ __('common.password_required') }}"
+          confirm-password-required-text="{{ __('common.password_confirmation_required') }}"
+          password-mismatch-text="{{ __('common.password_mismatch') }}"
+          captcha-required-text="{{ __('common.captch_required') }}"
+          terms-required-text="{{ __('common.please_accept_terms') }}"
+        >
+          <div slot="captcha">
+            @captcha
+          </div>
+</register-form>
