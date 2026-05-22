@@ -1215,3 +1215,409 @@ class RegisterForm extends HTMLElement {
 }
 
 customElements.define('register-form', RegisterForm);
+/**
+ * BattlePass Premium Switcher Web Components
+ * Natively supports glassmorphism theme, smooth animations, click-away closing, and active option checkmarks.
+ */
+
+// Shared Styles for both Web Components
+const getSwitcherStyles = () => `
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+    <style>
+        :host {
+            display: inline-block;
+            position: relative;
+            font-family: 'Outfit', sans-serif;
+            user-select: none;
+        }
+
+        .dropdown-container {
+            position: relative;
+        }
+
+        .dropdown-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            height: 40px;
+            padding: 0 14px;
+            border: 1px solid rgba(45, 244, 161, 0.25);
+            background: rgba(22, 40, 35, 0.88);
+            color: #2df4a1;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+            font-size: 14px;
+            box-shadow: 0 0 10px rgba(45, 244, 161, 0.05);
+            outline: none;
+        }
+
+        .dropdown-trigger:hover {
+            border-color: #2df4a1;
+            box-shadow: 0 0 15px rgba(45, 244, 161, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .dropdown-trigger:focus-visible {
+            border-color: #2df4a1;
+            box-shadow: 0 0 0 2px rgba(45, 244, 161, 0.4);
+        }
+
+        .dropdown-trigger:active {
+            transform: translateY(0);
+        }
+
+        .trigger-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .caret-icon {
+            font-size: 14px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .caret-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 48px;
+            right: 0;
+            background: rgba(7, 14, 11, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(45, 244, 161, 0.2);
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(45, 244, 161, 0.08);
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+            padding: 6px 0;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s;
+        }
+
+        .dropdown-menu.open {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .dropdown-item {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.85);
+            padding: 10px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            text-transform: uppercase;
+            outline: none;
+        }
+
+        .dropdown-item:hover {
+            background: rgba(45, 244, 161, 0.1);
+            color: #2df4a1;
+        }
+
+        .dropdown-item:focus-visible {
+            background: rgba(45, 244, 161, 0.1);
+            color: #2df4a1;
+        }
+
+        .dropdown-item.active {
+            color: #2df4a1;
+            background: rgba(45, 244, 161, 0.05);
+        }
+
+        .check-icon {
+            font-size: 14px;
+            color: #2df4a1;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .dropdown-item.active .check-icon {
+            opacity: 1;
+        }
+    </style>
+`;
+
+// 1. Currency Switcher Custom Element
+class CurrencySwitcher extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.isOpen = false;
+        this.currencies = [];
+        this.activeCode = '';
+        this.redirectPattern = '';
+    }
+
+    static get observedAttributes() {
+        return ['active-code', 'currencies', 'redirect-pattern'];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue !== newValue) {
+            this.updateProperties();
+            this.render();
+        }
+    }
+
+    connectedCallback() {
+        this.updateProperties();
+        this.render();
+        this.setupEvents();
+    }
+
+    disconnectedCallback() {
+        document.removeEventListener('click', this.clickAwayHandler);
+    }
+
+    updateProperties() {
+        this.activeCode = this.getAttribute('active-code') || 'USD';
+        this.redirectPattern = this.getAttribute('redirect-pattern') || '';
+        try {
+            this.currencies = JSON.parse(this.getAttribute('currencies') || '[]');
+        } catch (e) {
+            console.error('Invalid JSON for currencies attribute', e);
+            this.currencies = [];
+        }
+    }
+
+    toggleDropdown() {
+        this.isOpen = !this.isOpen;
+        const menu = this.shadowRoot.querySelector('.dropdown-menu');
+        const caret = this.shadowRoot.querySelector('.caret-icon');
+        if (this.isOpen) {
+            menu.classList.add('open');
+            caret.classList.add('rotated');
+        } else {
+            menu.classList.remove('open');
+            caret.classList.remove('rotated');
+        }
+    }
+
+    closeDropdown() {
+        this.isOpen = false;
+        const menu = this.shadowRoot.querySelector('.dropdown-menu');
+        const caret = this.shadowRoot.querySelector('.caret-icon');
+        if (menu) menu.classList.remove('open');
+        if (caret) caret.classList.remove('rotated');
+    }
+
+    setupEvents() {
+        const trigger = this.shadowRoot.querySelector('.dropdown-trigger');
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleDropdown();
+        });
+
+        // Handle click away to close
+        this.clickAwayHandler = (e) => {
+            const path = e.composedPath();
+            if (!path.includes(this)) {
+                this.closeDropdown();
+            }
+        };
+        document.addEventListener('click', this.clickAwayHandler);
+    }
+
+    handleSelect(code) {
+        this.closeDropdown();
+        if (this.redirectPattern) {
+            const redirectUrl = this.redirectPattern.replace('__VALUE__', encodeURIComponent(code));
+            window.location.href = redirectUrl;
+        } else {
+            // Fallback to custom event if redirect pattern is not provided
+            this.dispatchEvent(new CustomEvent('currency-change', {
+                detail: { code },
+                bubbles: true,
+                composed: true
+            }));
+            this.setAttribute('active-code', code);
+        }
+    }
+
+    render() {
+        const activeCurrency = this.currencies.find(c => c.code === this.activeCode) || { code: this.activeCode, symbol: '$' };
+        
+        const optionsHtml = this.currencies.map(c => `
+            <button class="dropdown-item ${c.code === this.activeCode ? 'active' : ''}" data-code="${c.code}">
+                <span>${c.symbol} ${c.code}</span>
+                <i class="ph ph-check check-icon"></i>
+            </button>
+        `).join('');
+
+        this.shadowRoot.innerHTML = `
+            ${getSwitcherStyles()}
+            <div class="dropdown-container">
+                <button class="dropdown-trigger" aria-label="Select Currency">
+                    <i class="ph ph-currency-circle-dollar"></i>
+                    <span class="trigger-label">${activeCurrency.symbol} ${activeCurrency.code}</span>
+                    <i class="ph ph-caret-down caret-icon"></i>
+                </button>
+                <div class="dropdown-menu">
+                    ${optionsHtml}
+                </div>
+            </div>
+        `;
+
+        // Bind items click events
+        this.shadowRoot.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.handleSelect(item.dataset.code);
+            });
+        });
+    }
+}
+
+// 2. Language Switcher Custom Element
+class LanguageSwitcher extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.isOpen = false;
+        this.languages = [];
+        this.activeCode = '';
+        this.redirectPattern = '';
+    }
+
+    static get observedAttributes() {
+        return ['active-code', 'languages', 'redirect-pattern'];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue !== newValue) {
+            this.updateProperties();
+            this.render();
+        }
+    }
+
+    connectedCallback() {
+        this.updateProperties();
+        this.render();
+        this.setupEvents();
+    }
+
+    disconnectedCallback() {
+        document.removeEventListener('click', this.clickAwayHandler);
+    }
+
+    updateProperties() {
+        this.activeCode = this.getAttribute('active-code') || 'en';
+        this.redirectPattern = this.getAttribute('redirect-pattern') || '';
+        try {
+            this.languages = JSON.parse(this.getAttribute('languages') || '[]');
+        } catch (e) {
+            console.error('Invalid JSON for languages attribute', e);
+            this.languages = [];
+        }
+    }
+
+    toggleDropdown() {
+        this.isOpen = !this.isOpen;
+        const menu = this.shadowRoot.querySelector('.dropdown-menu');
+        const caret = this.shadowRoot.querySelector('.caret-icon');
+        if (this.isOpen) {
+            menu.classList.add('open');
+            caret.classList.add('rotated');
+        } else {
+            menu.classList.remove('open');
+            caret.classList.remove('rotated');
+        }
+    }
+
+    closeDropdown() {
+        this.isOpen = false;
+        const menu = this.shadowRoot.querySelector('.dropdown-menu');
+        const caret = this.shadowRoot.querySelector('.caret-icon');
+        if (menu) menu.classList.remove('open');
+        if (caret) caret.classList.remove('rotated');
+    }
+
+    setupEvents() {
+        const trigger = this.shadowRoot.querySelector('.dropdown-trigger');
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleDropdown();
+        });
+
+        // Handle click away to close
+        this.clickAwayHandler = (e) => {
+            const path = e.composedPath();
+            if (!path.includes(this)) {
+                this.closeDropdown();
+            }
+        };
+        document.addEventListener('click', this.clickAwayHandler);
+    }
+
+    handleSelect(code) {
+        this.closeDropdown();
+        if (this.redirectPattern) {
+            const redirectUrl = this.redirectPattern.replace('__VALUE__', encodeURIComponent(code));
+            window.location.href = redirectUrl;
+        } else {
+            // Fallback to custom event
+            this.dispatchEvent(new CustomEvent('language-change', {
+                detail: { code },
+                bubbles: true,
+                composed: true
+            }));
+            this.setAttribute('active-code', code);
+        }
+    }
+
+    render() {
+        const activeLang = this.languages.find(l => l.code === this.activeCode) || { code: this.activeCode, label: this.activeCode.toUpperCase() };
+
+        const optionsHtml = this.languages.map(l => `
+            <button class="dropdown-item ${l.code === this.activeCode ? 'active' : ''}" data-code="${l.code}">
+                <span>${l.label}</span>
+                <i class="ph ph-check check-icon"></i>
+            </button>
+        `).join('');
+
+        this.shadowRoot.innerHTML = `
+            ${getSwitcherStyles()}
+            <div class="dropdown-container">
+                <button class="dropdown-trigger" aria-label="Select Language">
+                    <i class="ph ph-translate"></i>
+                    <span class="trigger-label">${activeLang.label}</span>
+                    <i class="ph ph-caret-down caret-icon"></i>
+                </button>
+                <div class="dropdown-menu">
+                    ${optionsHtml}
+                </div>
+            </div>
+        `;
+
+        // Bind items click events
+        this.shadowRoot.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.handleSelect(item.dataset.code);
+            });
+        });
+    }
+}
+
+// Define the Custom Elements in the global window context
+customElements.define('currency-switcher', CurrencySwitcher);
+customElements.define('language-switcher', LanguageSwitcher);
