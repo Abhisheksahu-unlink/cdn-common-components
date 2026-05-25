@@ -601,6 +601,7 @@ function getSharedStyles({
             .link:hover { text-decoration: underline; }
             .footer-text { text-align: center; font-size: 14px; color: var(--ppf-muted); margin-top: 8px; }
             .terms-row { display: flex; align-items: center; gap: 8px; color: var(--ppf-text); font-size: 14px; cursor: pointer; }
+            #terms { width: 25px; height: 25px; cursor: pointer; }
             ` : ''}
         </style>
     `;
