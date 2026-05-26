@@ -1,0 +1,16 @@
+name: Purge CDN Cache
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'common-components.js'
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge jsDelivr Cache
+        run: |
+          curl -i https://purge.jsdelivr.net/gh/Abhisheksahu-unlink/cdn-common-components@main/common-components.js
