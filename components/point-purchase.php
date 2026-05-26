@@ -2,6 +2,7 @@
     <section id="points-topup" class="stp-30 relative z-20">
       <div class="container">
         <points-purchase-form
+            variant="standard"
             theme="dark"  
             layout="horizontal" 
             currency-symbol="$"
