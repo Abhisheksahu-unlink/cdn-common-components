@@ -42,6 +42,9 @@ class PointsPurchaseForm extends HTMLElement {
             this.getAttribute('radius') ||
             '12px';
 
+        this.variant =
+            this.getAttribute('variant') || 'standard';
+
         this.tiers = JSON.parse(
             this.getAttribute('tiers') || '[]'
         );
@@ -51,6 +54,124 @@ class PointsPurchaseForm extends HTMLElement {
     }
 
     render() {
+        if (this.variant === 'cosmic') {
+            const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+            const powerLevels = [20, 40, 65, 100];
+
+            const tierCards = this.tiers.map((tier, index) => {
+                const roman = romanNumerals[index] || (index + 1).toString();
+                const power = powerLevels[index] || Math.round(((index + 1) / this.tiers.length) * 100);
+                const isBestDeal = index === this.tiers.length - 1 && this.tiers.length > 1;
+
+                return `
+                    <div class="tier-face tier-${index + 1}">
+                        ${isBestDeal ? `<span class="tier-best-badge">[ BEST DEAL ]</span>` : ''}
+                        <div class="tier-inner">
+                            <div class="tier-badge-wrap">
+                                <span class="tier-roman">${roman}</span>
+                                <span class="tier-name">${tier.benefit}</span>
+                            </div>
+                            <div class="tier-mult-display">
+                                <span class="mult-num">${tier.multiplier}</span><span class="mult-x">x</span>
+                            </div>
+                            <div class="tier-range-label">${tier.multiplier}x Points</div>
+                            <div class="tier-price-range">${tier.label}</div>
+                            <div class="tier-power-bar">
+                                <div class="tier-power-fill" data-width="${power}"></div>
+                            </div>
+                            <div class="tier-power-label">POWER LEVEL ▸ ${power}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const topupTitle = this.getAttribute('topup-title') || '';
+            const topupIcon = this.getAttribute('topup-icon') || '';
+            const topupTagline = this.getAttribute('topup-tagline') || 'Bonus Tier Structure';
+            const topupIntro = this.getAttribute('topup-intro') || '';
+            const topupDisclaimer = this.getAttribute('topup-disclaimer') || 'Disclaimer: All purchased points can only be redeemed on this website.';
+            const rechargeTitle = this.getAttribute('recharge-title') || 'Begin Your Recharge';
+            const rechargeText = this.getAttribute('recharge-text') || 'Maximize your benefits with every top-up – the more you recharge, the more rewards you get.';
+
+            this.shadowRoot.innerHTML = `
+            ${getCosmicStyles({
+                borderRadius: this.borderRadius,
+                buttonBg: this.buttonBackground,
+                buttonColor: this.buttonColor
+            })}
+
+            <section class="pricing-section">
+                <div class="container">
+                    <div class="sec-title text-center">
+                        <h2>${topupTagline}</h2>
+                    </div>
+
+                    <div class="tier-cards-grid">
+                        ${tierCards}
+                    </div>
+                </div>
+            </section>
+
+            <div class="section-divider" style="height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(139,92,246,0) 8%, #8b5cf6 35%, #00f2fe 50%, #8b5cf6 65%, rgba(139,92,246,0) 92%, transparent 100%); box-shadow: 0 0 14px rgba(0,242,254,0.25);"></div>
+
+            <section class="epoint-form">
+                <div class="container">
+                    <div class="point-winfo">
+                        <div class="text-center">
+                            <p>${topupDisclaimer}</p>
+                            <h4>${rechargeTitle}</h4>
+                            <p class="sub-text">${rechargeText}</p>
+                            <a href="javascript:void(0)" class="clck-winfo"><strong>Input Your Amount &amp; Recharge Today</strong></a>
+                        </div>
+
+                        <form action="${this.action}" method="POST">
+                            <input type="hidden" name="_token" value="${this.csrf}">
+                            <input type="hidden" name="quant[1]" value="1">
+                            <input type="hidden" name="slug" value="points">
+
+                            <div class="cosmic-form-row">
+                                <div class="curency-col">
+                                    <p class="curency_xicn">${this.currency}</p>
+                                </div>
+
+                                <div class="input-col">
+                                    <label class="form-label">Amount</label>
+                                    <input 
+                                        type="number" 
+                                        class="form-control" 
+                                        placeholder="Enter amount in ${this.currency}" 
+                                        min="1" 
+                                        name="price" 
+                                        id="price" 
+                                        required
+                                    >
+                                </div>
+
+                                <div class="input-col">
+                                    <label class="form-label">Points</label>
+                                    <input 
+                                        type="number" 
+                                        class="form-control pnter-text" 
+                                        placeholder="Number Of Points" 
+                                        min="1" 
+                                        name="points" 
+                                        id="points" 
+                                        required 
+                                        readonly
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="text-center" style="margin-top: 24px;">
+                                <button class="default-button" type="submit">${this.buttonText}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+            `;
+            return;
+        }
 
         const rows = this.tiers.map((tier, index) => `
             <tr class="${index !== this.tiers.length - 1 ? 'border-row' : ''}">
@@ -199,21 +320,37 @@ class PointsPurchaseForm extends HTMLElement {
     }
 
     bindEvents() {
+        const input = this.shadowRoot.querySelector('#price');
+        if (input) {
+            input.addEventListener('input', () => this.calculate());
+        }
 
-        const input =
-            this.shadowRoot.querySelector('#price');
-
-        input.addEventListener(
-            'input',
-            () => this.calculate()
-        );
+        if (this.variant === 'cosmic') {
+            const fills = this.shadowRoot.querySelectorAll('.tier-power-fill');
+            const section = this.shadowRoot.querySelector('.pricing-section');
+            if (fills.length && section) {
+                let animated = false;
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting && !animated) {
+                            animated = true;
+                            fills.forEach(fill => {
+                                fill.style.width = fill.getAttribute('data-width') + '%';
+                            });
+                            observer.unobserve(section);
+                        }
+                    });
+                }, { threshold: 0.1 });
+                observer.observe(section);
+            }
+        }
     }
 
     calculate() {
+        const priceEl = this.shadowRoot.querySelector('#price');
+        if (!priceEl) return;
 
-        const amount = parseFloat(
-            this.shadowRoot.querySelector('#price').value
-        ) || 0;
+        const amount = parseFloat(priceEl.value) || 0;
 
         const matchedTier = this.tiers.find(tier =>
             amount >= Number(tier.min) &&
@@ -232,20 +369,27 @@ class PointsPurchaseForm extends HTMLElement {
         const bonusPoints =
             totalPoints - points;
 
-        this.shadowRoot.querySelector('#pointst').textContent =
-            points.toLocaleString();
+        if (this.variant === 'cosmic') {
+            const pointsEl = this.shadowRoot.querySelector('#points');
+            if (pointsEl) {
+                pointsEl.value = totalPoints;
+            }
+        } else {
+            const pointstEl = this.shadowRoot.querySelector('#pointst');
+            if (pointstEl) pointstEl.textContent = points.toLocaleString();
 
-        this.shadowRoot.querySelector('#bonus_pointst').textContent =
-            bonusPoints.toLocaleString();
+            const bonusPointstEl = this.shadowRoot.querySelector('#bonus_pointst');
+            if (bonusPointstEl) bonusPointstEl.textContent = bonusPoints.toLocaleString();
 
-        this.shadowRoot.querySelector('#total_pointst').textContent =
-            totalPoints.toLocaleString();
+            const totalPointstEl = this.shadowRoot.querySelector('#total_pointst');
+            if (totalPointstEl) totalPointstEl.textContent = totalPoints.toLocaleString();
 
-        this.shadowRoot.querySelector('#bonus_multiplier').textContent =
-            multiplier + 'x';
+            const bonusMultiplierEl = this.shadowRoot.querySelector('#bonus_multiplier');
+            if (bonusMultiplierEl) bonusMultiplierEl.textContent = multiplier + 'x';
 
-        this.shadowRoot.querySelector('#total_points').value =
-            totalPoints;
+            const totalPointsEl = this.shadowRoot.querySelector('#total_points');
+            if (totalPointsEl) totalPointsEl.value = totalPoints;
+        }
     }
 }
 
@@ -253,6 +397,483 @@ customElements.define(
     'points-purchase-form',
     PointsPurchaseForm
 );
+
+function getCosmicStyles({
+    borderRadius = '12px',
+    buttonBg = 'var(--ppf-primary)',
+    buttonColor = 'var(--ppf-primary-text)'
+} = {}) {
+    return `
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;700&family=Rajdhani:wght@500;600;700&display=swap">
+        <style>
+            :host {
+                --cosmic-bg-dark:   #08050e;
+                --cosmic-bg-light:  #0d091a;
+                --obsidian-panel:   rgba(19,15,38,0.72);
+                --obsidian-border:  rgba(139,92,246,0.25);
+                --aurora-cyan:      #00f2fe;
+                --aurora-purple:    #8b5cf6;
+                --aurora-pink:      #ec4899;
+                --cyber-gold:       #f59e0b;
+
+                --button-bg: ${buttonBg};
+                --button-color: ${buttonColor};
+                --ppf-radius: ${borderRadius};
+
+                display: block;
+                width: 100%;
+                font-family: 'Outfit', sans-serif;
+            }
+
+            *, *::before, *::after {
+                box-sizing: border-box;
+            }
+
+            .pricing-section {
+                padding: 60px 0;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .pricing-section::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background-image:
+                    linear-gradient(rgba(255,255,255,0.013) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.013) 1px, transparent 1px);
+                background-size: 30px 30px;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+            .pricing-section .sec-title h2 {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 2.2rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                color: #fff;
+                text-shadow: 0 0 10px rgba(139,92,246,0.4);
+                margin-bottom: 40px;
+                text-align: center;
+            }
+
+            .tier-cards-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 22px;
+                margin-top: 20px;
+            }
+
+            .tier-face {
+                position: relative;
+                transition: transform 0.35s ease;
+            }
+
+            .tier-face:hover { transform: translateY(-8px); }
+
+            .tier-inner {
+                background: rgba(13,9,26,0.85);
+                backdrop-filter: blur(20px) saturate(180%);
+                -webkit-backdrop-filter: blur(20px) saturate(180%);
+                border: 1px solid rgba(255,255,255,0.07);
+                border-radius: 16px;
+                padding: 38px 24px 30px;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+                transition: border-color 0.4s ease, box-shadow 0.4s ease;
+            }
+
+            .tier-inner::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background-image:
+                    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+                background-size: 22px 22px;
+                pointer-events: none;
+            }
+
+            .tier-badge-wrap {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 24px;
+            }
+
+            .tier-roman {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 14px;
+                font-weight: 700;
+                width: 46px;
+                height: 46px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                letter-spacing: 1px;
+                transition: all 0.3s ease;
+            }
+
+            .tier-name {
+                font-family: 'Rajdhani', sans-serif;
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+                color: rgba(226,232,240,0.55);
+            }
+
+            .tier-mult-display {
+                display: flex;
+                align-items: baseline;
+                justify-content: center;
+                margin-bottom: 6px;
+                line-height: 1;
+            }
+
+            .mult-num {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 56px;
+                font-weight: 900;
+                line-height: 1;
+                transition: text-shadow 0.3s ease;
+            }
+
+            .mult-x {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 24px;
+                font-weight: 700;
+                margin-left: 3px;
+                opacity: 0.7;
+                align-self: flex-start;
+                padding-top: 10px;
+            }
+
+            .tier-range-label {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+                color: rgba(226,232,240,0.45);
+                margin-bottom: 18px;
+            }
+
+            .tier-price-range {
+                font-family: 'Rajdhani', sans-serif;
+                font-size: 19px;
+                font-weight: 700;
+                color: rgba(226,232,240,0.9);
+                letter-spacing: 0.5px;
+                margin-bottom: 28px;
+                margin-top: auto;
+            }
+
+            .tier-power-bar {
+                width: 100%;
+                height: 5px;
+                background: rgba(255,255,255,0.06);
+                border-radius: 3px;
+                overflow: hidden;
+                margin-bottom: 7px;
+            }
+
+            .tier-power-fill {
+                height: 100%;
+                border-radius: 3px;
+                width: 0;
+                transition: width 1.4s cubic-bezier(0.25,1,0.5,1);
+            }
+
+            .tier-power-label {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 8px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                color: rgba(255,255,255,0.25);
+                text-align: right;
+                width: 100%;
+            }
+
+            .tier-best-badge {
+                position: absolute;
+                top: 14px;
+                right: 14px;
+                font-family: 'Orbitron', sans-serif;
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                z-index: 10;
+                padding: 4px 9px;
+                border-radius: 4px;
+            }
+
+            /* Dynamic Tier Styling */
+            .tier-face.tier-1 .tier-inner { border-color: rgba(160,174,192,0.32); box-shadow: 0 12px 28px rgba(160,174,192,0.06); }
+            .tier-face.tier-1:hover .tier-inner { border-color: rgba(160,174,192,0.65); box-shadow: 0 22px 44px rgba(160,174,192,0.14); }
+            .tier-face.tier-1 .tier-roman { background: rgba(160,174,192,0.1); border: 1px solid rgba(160,174,192,0.25); color: #a0aec0; }
+            .tier-face.tier-1 .mult-num, .tier-face.tier-1 .mult-x { color: #a0aec0; }
+            .tier-face.tier-1:hover .mult-num { text-shadow: 0 0 20px rgba(160,174,192,0.5); }
+            .tier-face.tier-1 .tier-power-fill { background: linear-gradient(90deg, #718096, #cbd5e0); }
+
+            .tier-face.tier-2 .tier-inner { border-color: rgba(245,158,11,0.28); box-shadow: 0 12px 28px rgba(245,158,11,0.05); }
+            .tier-face.tier-2:hover .tier-inner { border-color: rgba(245,158,11,0.7); box-shadow: 0 22px 44px rgba(245,158,11,0.14); }
+            .tier-face.tier-2 .tier-roman { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: var(--cyber-gold); }
+            .tier-face.tier-2 .mult-num, .tier-face.tier-2 .mult-x { color: var(--cyber-gold); }
+            .tier-face.tier-2 .tier-name { color: rgba(245,158,11,0.8); }
+            .tier-face.tier-2:hover .mult-num { text-shadow: 0 0 20px rgba(245,158,11,0.6); }
+            .tier-face.tier-2 .tier-power-fill { background: linear-gradient(90deg, #b45309, var(--cyber-gold)); box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+
+            .tier-face.tier-3 .tier-inner { border-color: rgba(0,242,254,0.28); box-shadow: 0 12px 28px rgba(0,242,254,0.05); }
+            .tier-face.tier-3:hover .tier-inner { border-color: rgba(0,242,254,0.7); box-shadow: 0 22px 44px rgba(0,242,254,0.14); }
+            .tier-face.tier-3 .tier-roman { background: rgba(0,242,254,0.08); border: 1px solid rgba(0,242,254,0.25); color: var(--aurora-cyan); }
+            .tier-face.tier-3 .mult-num, .tier-face.tier-3 .mult-x { color: var(--aurora-cyan); }
+            .tier-face.tier-3 .tier-name { color: rgba(0,242,254,0.75); }
+            .tier-face.tier-3:hover .mult-num { text-shadow: 0 0 22px rgba(0,242,254,0.7); }
+            .tier-face.tier-3 .tier-power-fill { background: linear-gradient(90deg, #0e7490, var(--aurora-cyan)); box-shadow: 0 0 10px rgba(0,242,254,0.6); }
+
+            .tier-face.tier-4 .tier-inner { border-color: rgba(236,72,153,0.42); animation: tier4Pulse 3.5s infinite ease-in-out; }
+            @keyframes tier4Pulse {
+                0%,100% { border-color: rgba(236,72,153,0.32); box-shadow: 0 12px 28px rgba(236,72,153,0.06); }
+                50%     { border-color: rgba(236,72,153,0.62); box-shadow: 0 0 30px rgba(236,72,153,0.14); }
+            }
+            .tier-face.tier-4:hover .tier-inner { border-color: rgba(236,72,153,0.85); box-shadow: 0 22px 44px rgba(236,72,153,0.2); animation: none; }
+            .tier-face.tier-4 .tier-roman { background: rgba(236,72,153,0.1); border: 1px solid rgba(236,72,153,0.3); color: var(--aurora-pink); }
+            .tier-face.tier-4 .mult-num, .tier-face.tier-4 .mult-x { color: var(--aurora-pink); }
+            .tier-face.tier-4 .tier-name { color: rgba(236,72,153,0.8); }
+            .tier-face.tier-4 .tier-price-range { color: var(--aurora-pink); }
+            .tier-face.tier-4:hover .mult-num { text-shadow: 0 0 25px rgba(236,72,153,0.8); }
+            .tier-face.tier-4 .tier-power-fill { background: linear-gradient(90deg, #9d174d, var(--aurora-pink)); box-shadow: 0 0 12px rgba(236,72,153,0.7); }
+            .tier-face.tier-4 .tier-best-badge { color: var(--aurora-pink); background: rgba(236,72,153,0.1); border: 1px solid rgba(236,72,153,0.3); text-shadow: 0 0 6px rgba(236,72,153,0.6); }
+
+            /* Recharge console wrapper */
+            .epoint-form {
+                padding: 40px 0;
+                position: relative;
+            }
+
+            .point-winfo {
+                background: #0f0b21;
+                border: 1px solid var(--obsidian-border);
+                border-radius: var(--ppf-radius);
+                padding: 50px 40px;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 40px rgba(139,92,246,0.1);
+                position: relative;
+                overflow: hidden;
+            }
+
+            .point-winfo::before {
+                content: '[';
+                font-family: 'Orbitron', sans-serif;
+                font-size: 32px;
+                font-weight: 300;
+                color: var(--aurora-cyan);
+                position: absolute;
+                top: 15px;
+                left: 20px;
+                opacity: 0.4;
+                pointer-events: none;
+            }
+
+            .point-winfo::after {
+                content: ']';
+                font-family: 'Orbitron', sans-serif;
+                font-size: 32px;
+                font-weight: 300;
+                color: var(--aurora-cyan);
+                position: absolute;
+                top: 15px;
+                right: 20px;
+                opacity: 0.4;
+                pointer-events: none;
+            }
+
+            .point-winfo .text-center {
+                text-align: center;
+                margin-bottom: 24px;
+            }
+
+            .point-winfo .text-center > p:first-child {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 13px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                color: var(--aurora-pink);
+                text-shadow: 0 0 8px rgba(236,72,153,0.5);
+                margin-bottom: 12px;
+                margin-top: 0;
+            }
+
+            .point-winfo h4 {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 2.2rem;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                color: #fff;
+                margin: 0 0 10px 0;
+                text-shadow: 0 0 15px rgba(139,92,246,0.3);
+            }
+
+            .point-winfo .text-center > p.sub-text {
+                font-family: 'Outfit', sans-serif;
+                font-weight: 300;
+                font-size: 14px;
+                color: rgba(226,232,240,0.8);
+                margin: 0 0 20px 0;
+            }
+
+            .clck-winfo {
+                display: inline-block;
+                font-family: 'Rajdhani', sans-serif;
+                font-size: 13px;
+                font-weight: 700;
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+                color: var(--aurora-cyan);
+                text-decoration: none;
+                border-bottom: 1px solid rgba(0,242,254,0.35);
+                padding-bottom: 2px;
+                margin-bottom: 36px;
+                transition: color 0.2s, border-color 0.2s;
+            }
+
+            .clck-winfo:hover {
+                color: var(--aurora-purple);
+                border-color: var(--aurora-purple);
+            }
+
+            /* Flex row for form controls */
+            .cosmic-form-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 20px;
+                align-items: flex-end;
+                justify-content: center;
+                max-width: 800px;
+                margin: 0 auto;
+            }
+
+            .curency-col {
+                flex: 0 0 60px;
+            }
+
+            .curency_xicn {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 20px;
+                font-weight: 700;
+                background: rgba(0,242,254,0.08);
+                border: 1px solid rgba(0,242,254,0.3);
+                color: var(--aurora-cyan);
+                height: 52px;
+                border-radius: 8px;
+                text-shadow: 0 0 5px rgba(0,242,254,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+            }
+
+            .input-col {
+                flex: 1 1 200px;
+                max-width: 300px;
+            }
+
+            .point-winfo label.form-label {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                color: rgba(226,232,240,0.7);
+                margin-bottom: 8px;
+                display: block;
+            }
+
+            .point-winfo input.form-control {
+                width: 100%;
+                background: #07040d;
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 8px;
+                height: 52px;
+                color: #fff;
+                font-family: 'Orbitron', sans-serif;
+                font-size: 18px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                padding: 10px 18px;
+                transition: all 0.3s ease;
+                outline: none;
+                box-sizing: border-box;
+            }
+
+            .point-winfo input.form-control:focus {
+                border-color: var(--aurora-purple);
+                box-shadow: 0 0 12px rgba(139,92,246,0.4);
+                background: #0d091a;
+            }
+
+            .point-winfo input.form-control.pnter-text {
+                background: rgba(0,242,254,0.03);
+                border-color: rgba(0,242,254,0.25);
+                color: var(--aurora-cyan);
+                text-shadow: 0 0 8px rgba(0,242,254,0.5);
+            }
+
+            .point-winfo input.form-control::placeholder {
+                color: rgba(148,163,184,0.35);
+                font-family: 'Outfit', sans-serif;
+                font-size: 14px;
+                font-weight: 300;
+                letter-spacing: normal;
+            }
+
+            .point-winfo button.default-button {
+                font-family: 'Orbitron', sans-serif;
+                font-weight: 900;
+                font-size: 15px;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                padding: 14px 45px;
+                border-radius: 4px;
+                background: linear-gradient(135deg, var(--aurora-purple) 0%, var(--aurora-pink) 100%);
+                color: #fff;
+                border: none;
+                box-shadow: 0 0 20px rgba(139,92,246,0.5);
+                transition: all 0.3s cubic-bezier(0.25,0.8,0.25,1);
+                cursor: pointer;
+                margin-top: 0;
+                width: 100%;
+                max-width: 250px;
+            }
+
+            .point-winfo button.default-button:hover {
+                transform: translateY(-3px) scale(1.02);
+                box-shadow: 0 0 30px rgba(236,72,153,0.7);
+                background: linear-gradient(135deg, var(--aurora-cyan) 0%, var(--aurora-purple) 100%);
+            }
+
+            @media (max-width: 768px) {
+                .point-winfo { padding: 30px 20px; }
+                .point-winfo::before, .point-winfo::after { display: none; }
+                .cosmic-form-row { flex-direction: column; align-items: stretch; }
+                .curency-col { flex: none; width: 100%; }
+                .input-col { flex: none; width: 100%; max-width: none; }
+                .point-winfo button.default-button { max-width: none; margin-top: 15px; }
+            }
+        </style>
+    `;
+}
 
 function getSharedStyles({
     maxWidth = 'none',
