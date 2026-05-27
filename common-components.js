@@ -1,10 +1,57 @@
 
+function parseTextStyle(attrValue) {
+    const style = { family: '', weight: '', fontStyle: '' };
+    if (!attrValue) return style;
+
+    const parts = attrValue.split(/\s+/);
+    parts.forEach(part => {
+        const lower = part.toLowerCase();
+        if (lower === 'italic' || lower === 'normal' || lower === 'oblique') {
+            style.fontStyle = lower;
+        } else if (lower === 'bold' || lower === 'lighter' || lower === 'bolder' || /^\d{3}$/.test(part)) {
+            style.weight = lower;
+        } else {
+            if (style.family) {
+                style.family += ' ' + part;
+            } else {
+                style.family = part;
+            }
+        }
+    });
+    return style;
+}
+
 class PointsPurchaseForm extends HTMLElement {
 
+    static get observedAttributes() {
+        return [
+            'currency-symbol', 'action', 'csrf', 'theme', 'layout',
+            'button-text', 'show-table', 'show-bonus', 'button-background',
+            'button-color', 'border-radius', 'radius', 'variant', 'tiers',
+            'title-color', 'title-size', 'title-style',
+            'heading-color', 'heading-size', 'heading-style',
+            'subheading-color', 'subheading-size', 'subheading-style',
+            'paragraph-color', 'paragraph-size', 'paragraph-style'
+        ];
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue !== newValue && this._connected) {
+            this.updateAttributes();
+            this.render();
+            this.bindEvents();
+        }
+    }
+
     connectedCallback() {
-
         this.attachShadow({ mode: 'open' });
+        this._connected = true;
+        this.updateAttributes();
+        this.render();
+        this.bindEvents();
+    }
 
+    updateAttributes() {
         this.currency =
             this.getAttribute('currency-symbol') || '$';
 
@@ -45,12 +92,57 @@ class PointsPurchaseForm extends HTMLElement {
         this.variant =
             this.getAttribute('variant') || 'standard';
 
-        this.tiers = JSON.parse(
-            this.getAttribute('tiers') || '[]'
-        );
+        try {
+            this.tiers = JSON.parse(
+                this.getAttribute('tiers') || '[]'
+            );
+        } catch (e) {
+            console.error('Invalid JSON for tiers attribute', e);
+            this.tiers = [];
+        }
 
-        this.render();
-        this.bindEvents();
+        // Parse and apply dynamic typography variables to the host element's styles
+        const textTypes = ['title', 'heading', 'subheading', 'paragraph'];
+        textTypes.forEach(type => {
+            const color = this.getAttribute(`${type}-color`);
+            const size = this.getAttribute(`${type}-size`);
+            const styleAttr = this.getAttribute(`${type}-style`);
+
+            if (color) {
+                this.style.setProperty(`--ppf-${type}-color`, color);
+            } else {
+                this.style.removeProperty(`--ppf-${type}-color`);
+            }
+
+            if (size) {
+                this.style.setProperty(`--ppf-${type}-size`, size);
+            } else {
+                this.style.removeProperty(`--ppf-${type}-size`);
+            }
+
+            if (styleAttr) {
+                const parsed = parseTextStyle(styleAttr);
+                if (parsed.family) {
+                    this.style.setProperty(`--ppf-${type}-font-family`, parsed.family);
+                } else {
+                    this.style.removeProperty(`--ppf-${type}-font-family`);
+                }
+                if (parsed.weight) {
+                    this.style.setProperty(`--ppf-${type}-font-weight`, parsed.weight);
+                } else {
+                    this.style.removeProperty(`--ppf-${type}-font-weight`);
+                }
+                if (parsed.fontStyle) {
+                    this.style.setProperty(`--ppf-${type}-font-style`, parsed.fontStyle);
+                } else {
+                    this.style.removeProperty(`--ppf-${type}-font-style`);
+                }
+            } else {
+                this.style.removeProperty(`--ppf-${type}-font-family`);
+                this.style.removeProperty(`--ppf-${type}-font-weight`);
+                this.style.removeProperty(`--ppf-${type}-font-style`);
+            }
+        });
     }
 
     render() {
@@ -100,75 +192,77 @@ class PointsPurchaseForm extends HTMLElement {
                 buttonColor: this.buttonColor
             })}
 
-            <section class="pricing-section">
-                <div class="container">
-                    <div class="sec-title text-center">
-                        <h2>${topupTagline}</h2>
-                    </div>
-
-                    <div class="tier-cards-grid">
-                        ${tierCards}
-                    </div>
-                </div>
-            </section>
-
-            <div class="section-divider" style="height: 1px; background: linear-gradient(90deg, transparent 0%, rgba(139,92,246,0) 8%, #8b5cf6 35%, #00f2fe 50%, #8b5cf6 65%, rgba(139,92,246,0) 92%, transparent 100%); box-shadow: 0 0 14px rgba(0,242,254,0.25);"></div>
-
-            <section class="epoint-form">
-                <div class="container">
-                    <div class="point-winfo">
-                        <div class="text-center">
-                            <p>${topupDisclaimer}</p>
-                            <h4>${rechargeTitle}</h4>
-                            <p class="sub-text">${rechargeText}</p>
-                            <a href="javascript:void(0)" class="clck-winfo"><strong>Input Your Amount &amp; Recharge Today</strong></a>
+            <div class="cosmic-container cosmic-layout-${this.layout}">
+                <section class="pricing-section">
+                    <div class="container">
+                        <div class="sec-title text-center">
+                            <h2>${topupTagline}</h2>
                         </div>
 
-                        <form action="${this.action}" method="POST">
-                            <input type="hidden" name="_token" value="${this.csrf}">
-                            <input type="hidden" name="quant[1]" value="1">
-                            <input type="hidden" name="slug" value="points">
-
-                            <div class="cosmic-form-row">
-                                <div class="curency-col">
-                                    <p class="curency_xicn">${this.currency}</p>
-                                </div>
-
-                                <div class="input-col">
-                                    <label class="form-label">Amount</label>
-                                    <input 
-                                        type="number" 
-                                        class="form-control" 
-                                        placeholder="Enter amount in ${this.currency}" 
-                                        min="1" 
-                                        name="price" 
-                                        id="price" 
-                                        required
-                                    >
-                                </div>
-
-                                <div class="input-col">
-                                    <label class="form-label">Points</label>
-                                    <input 
-                                        type="number" 
-                                        class="form-control pnter-text" 
-                                        placeholder="Number Of Points" 
-                                        min="1" 
-                                        name="points" 
-                                        id="points" 
-                                        required 
-                                        readonly
-                                    >
-                                </div>
-                            </div>
-
-                            <div class="text-center" style="margin-top: 24px;">
-                                <button class="default-button" type="submit">${this.buttonText}</button>
-                            </div>
-                        </form>
+                        <div class="tier-cards-grid">
+                            ${tierCards}
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
+
+                <div class="section-divider"></div>
+
+                <section class="epoint-form">
+                    <div class="container">
+                        <div class="point-winfo">
+                            <div class="text-center">
+                                <p>${topupDisclaimer}</p>
+                                <h4>${rechargeTitle}</h4>
+                                <p class="sub-text">${rechargeText}</p>
+                                <a href="javascript:void(0)" class="clck-winfo"><strong>Input Your Amount &amp; Recharge Today</strong></a>
+                            </div>
+
+                            <form action="${this.action}" method="POST">
+                                <input type="hidden" name="_token" value="${this.csrf}">
+                                <input type="hidden" name="quant[1]" value="1">
+                                <input type="hidden" name="slug" value="points">
+
+                                <div class="cosmic-form-row">
+                                    <div class="curency-col">
+                                        <p class="curency_xicn">${this.currency}</p>
+                                    </div>
+
+                                    <div class="input-col">
+                                        <label class="form-label">Amount</label>
+                                        <input 
+                                            type="number" 
+                                            class="form-control" 
+                                            placeholder="Enter amount in ${this.currency}" 
+                                            min="1" 
+                                            name="price" 
+                                            id="price" 
+                                            required
+                                        >
+                                    </div>
+
+                                    <div class="input-col">
+                                        <label class="form-label">Points</label>
+                                        <input 
+                                            type="number" 
+                                            class="form-control pnter-text" 
+                                            placeholder="Number Of Points" 
+                                            min="1" 
+                                            name="points" 
+                                            id="points" 
+                                            required 
+                                            readonly
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="text-center" style="margin-top: 24px;">
+                                    <button class="default-button" type="submit">${this.buttonText}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            </div>
             `;
             return;
         }
@@ -407,10 +501,18 @@ function getCosmicStyles({
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;700&family=Rajdhani:wght@500;600;700&display=swap">
         <style>
             :host {
-                --cosmic-bg-dark:   #08050e;
-                --cosmic-bg-light:  #0d091a;
-                --obsidian-panel:   rgba(19,15,38,0.72);
-                --obsidian-border:  rgba(139,92,246,0.25);
+                --cosmic-bg: #0c071e;
+                --cosmic-card-bg: rgba(13, 9, 26, 0.85);
+                --cosmic-input-bg: #07040d;
+                --cosmic-input-focus-bg: #0d091a;
+                --cosmic-text: #ffffff;
+                --cosmic-text-muted: rgba(226, 232, 240, 0.6);
+                --cosmic-border: rgba(139, 92, 246, 0.25);
+                --cosmic-grid-color: rgba(255, 255, 255, 0.013);
+                --cosmic-roman-bg: rgba(139, 92, 246, 0.1);
+
+                --obsidian-panel:   var(--cosmic-card-bg);
+                --obsidian-border:  var(--cosmic-border);
                 --aurora-cyan:      #00f2fe;
                 --aurora-purple:    #8b5cf6;
                 --aurora-pink:      #ec4899;
@@ -423,6 +525,26 @@ function getCosmicStyles({
                 display: block;
                 width: 100%;
                 font-family: 'Outfit', sans-serif;
+                background-color: var(--cosmic-bg);
+                color: var(--cosmic-text);
+                transition: background-color 0.3s ease, color 0.3s ease;
+            }
+
+            :host([theme="light"]) {
+                --cosmic-bg: #f5f3ff;
+                --cosmic-card-bg: rgba(255, 255, 255, 0.85);
+                --cosmic-input-bg: #ffffff;
+                --cosmic-input-focus-bg: #fcfbff;
+                --cosmic-text: #120e36;
+                --cosmic-text-muted: rgba(18, 14, 54, 0.65);
+                --cosmic-border: rgba(139, 92, 246, 0.15);
+                --cosmic-grid-color: rgba(139, 92, 246, 0.03);
+                --cosmic-roman-bg: rgba(139, 92, 246, 0.06);
+
+                --aurora-cyan:      #0284c7;
+                --aurora-purple:    #7c3aed;
+                --aurora-pink:      #db2777;
+                --cyber-gold:       #d97706;
             }
 
             *, *::before, *::after {
@@ -440,20 +562,21 @@ function getCosmicStyles({
                 position: absolute;
                 inset: 0;
                 background-image:
-                    linear-gradient(rgba(255,255,255,0.013) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,0.013) 1px, transparent 1px);
+                    linear-gradient(var(--cosmic-grid-color) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--cosmic-grid-color) 1px, transparent 1px);
                 background-size: 30px 30px;
                 pointer-events: none;
                 z-index: 0;
             }
 
             .pricing-section .sec-title h2 {
-                font-family: 'Orbitron', sans-serif;
-                font-size: 2.2rem;
-                font-weight: 700;
+                font-family: var(--ppf-title-font-family, 'Orbitron', sans-serif);
+                font-size: var(--ppf-title-size, 2.2rem);
+                font-weight: var(--ppf-title-font-weight, 700);
+                font-style: var(--ppf-title-font-style, normal);
                 text-transform: uppercase;
                 letter-spacing: 2px;
-                color: #fff;
+                color: var(--ppf-title-color, var(--cosmic-text));
                 text-shadow: 0 0 10px rgba(139,92,246,0.4);
                 margin-bottom: 40px;
                 text-align: center;
@@ -474,10 +597,10 @@ function getCosmicStyles({
             .tier-face:hover { transform: translateY(-8px); }
 
             .tier-inner {
-                background: rgba(13,9,26,0.85);
+                background: var(--cosmic-card-bg);
                 backdrop-filter: blur(20px) saturate(180%);
                 -webkit-backdrop-filter: blur(20px) saturate(180%);
-                border: 1px solid rgba(255,255,255,0.07);
+                border: 1px solid var(--cosmic-border);
                 border-radius: 16px;
                 padding: 38px 24px 30px;
                 height: 100%;
@@ -487,7 +610,7 @@ function getCosmicStyles({
                 text-align: center;
                 position: relative;
                 overflow: hidden;
-                transition: border-color 0.4s ease, box-shadow 0.4s ease;
+                transition: border-color 0.4s ease, box-shadow 0.4s ease, background-color 0.3s ease;
             }
 
             .tier-inner::before {
@@ -495,8 +618,8 @@ function getCosmicStyles({
                 position: absolute;
                 inset: 0;
                 background-image:
-                    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+                    linear-gradient(var(--cosmic-grid-color) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--cosmic-grid-color) 1px, transparent 1px);
                 background-size: 22px 22px;
                 pointer-events: none;
             }
@@ -529,7 +652,7 @@ function getCosmicStyles({
                 font-weight: 700;
                 letter-spacing: 2px;
                 text-transform: uppercase;
-                color: rgba(226,232,240,0.55);
+                color: var(--cosmic-text-muted);
             }
 
             .tier-mult-display {
@@ -564,7 +687,7 @@ function getCosmicStyles({
                 font-weight: 700;
                 letter-spacing: 1.5px;
                 text-transform: uppercase;
-                color: rgba(226,232,240,0.45);
+                color: var(--cosmic-text-muted);
                 margin-bottom: 18px;
             }
 
@@ -572,7 +695,7 @@ function getCosmicStyles({
                 font-family: 'Rajdhani', sans-serif;
                 font-size: 19px;
                 font-weight: 700;
-                color: rgba(226,232,240,0.9);
+                color: var(--cosmic-text);
                 letter-spacing: 0.5px;
                 margin-bottom: 28px;
                 margin-top: auto;
@@ -599,7 +722,7 @@ function getCosmicStyles({
                 font-size: 8px;
                 font-weight: 700;
                 letter-spacing: 1px;
-                color: rgba(255,255,255,0.25);
+                color: var(--cosmic-text-muted);
                 text-align: right;
                 width: 100%;
             }
@@ -620,14 +743,14 @@ function getCosmicStyles({
             /* Dynamic Tier Styling */
             .tier-face.tier-1 .tier-inner { border-color: rgba(160,174,192,0.32); box-shadow: 0 12px 28px rgba(160,174,192,0.06); }
             .tier-face.tier-1:hover .tier-inner { border-color: rgba(160,174,192,0.65); box-shadow: 0 22px 44px rgba(160,174,192,0.14); }
-            .tier-face.tier-1 .tier-roman { background: rgba(160,174,192,0.1); border: 1px solid rgba(160,174,192,0.25); color: #a0aec0; }
+            .tier-face.tier-1 .tier-roman { background: var(--cosmic-roman-bg); border: 1px solid rgba(160,174,192,0.25); color: #a0aec0; }
             .tier-face.tier-1 .mult-num, .tier-face.tier-1 .mult-x { color: #a0aec0; }
             .tier-face.tier-1:hover .mult-num { text-shadow: 0 0 20px rgba(160,174,192,0.5); }
             .tier-face.tier-1 .tier-power-fill { background: linear-gradient(90deg, #718096, #cbd5e0); }
 
             .tier-face.tier-2 .tier-inner { border-color: rgba(245,158,11,0.28); box-shadow: 0 12px 28px rgba(245,158,11,0.05); }
             .tier-face.tier-2:hover .tier-inner { border-color: rgba(245,158,11,0.7); box-shadow: 0 22px 44px rgba(245,158,11,0.14); }
-            .tier-face.tier-2 .tier-roman { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: var(--cyber-gold); }
+            .tier-face.tier-2 .tier-roman { background: var(--cosmic-roman-bg); border: 1px solid rgba(245,158,11,0.3); color: var(--cyber-gold); }
             .tier-face.tier-2 .mult-num, .tier-face.tier-2 .mult-x { color: var(--cyber-gold); }
             .tier-face.tier-2 .tier-name { color: rgba(245,158,11,0.8); }
             .tier-face.tier-2:hover .mult-num { text-shadow: 0 0 20px rgba(245,158,11,0.6); }
@@ -635,9 +758,9 @@ function getCosmicStyles({
 
             .tier-face.tier-3 .tier-inner { border-color: rgba(0,242,254,0.28); box-shadow: 0 12px 28px rgba(0,242,254,0.05); }
             .tier-face.tier-3:hover .tier-inner { border-color: rgba(0,242,254,0.7); box-shadow: 0 22px 44px rgba(0,242,254,0.14); }
-            .tier-face.tier-3 .tier-roman { background: rgba(0,242,254,0.08); border: 1px solid rgba(0,242,254,0.25); color: var(--aurora-cyan); }
+            .tier-face.tier-3 .tier-roman { background: var(--cosmic-roman-bg); border: 1px solid rgba(0,242,254,0.25); color: var(--aurora-cyan); }
             .tier-face.tier-3 .mult-num, .tier-face.tier-3 .mult-x { color: var(--aurora-cyan); }
-            .tier-face.tier-3 .tier-name { color: rgba(0,242,254,0.75); }
+            .tier-face.tier-3 .tier-name { color: var(--aurora-cyan); opacity: 0.85; }
             .tier-face.tier-3:hover .mult-num { text-shadow: 0 0 22px rgba(0,242,254,0.7); }
             .tier-face.tier-3 .tier-power-fill { background: linear-gradient(90deg, #0e7490, var(--aurora-cyan)); box-shadow: 0 0 10px rgba(0,242,254,0.6); }
 
@@ -647,7 +770,7 @@ function getCosmicStyles({
                 50%     { border-color: rgba(236,72,153,0.62); box-shadow: 0 0 30px rgba(236,72,153,0.14); }
             }
             .tier-face.tier-4:hover .tier-inner { border-color: rgba(236,72,153,0.85); box-shadow: 0 22px 44px rgba(236,72,153,0.2); animation: none; }
-            .tier-face.tier-4 .tier-roman { background: rgba(236,72,153,0.1); border: 1px solid rgba(236,72,153,0.3); color: var(--aurora-pink); }
+            .tier-face.tier-4 .tier-roman { background: var(--cosmic-roman-bg); border: 1px solid rgba(236,72,153,0.3); color: var(--aurora-pink); }
             .tier-face.tier-4 .mult-num, .tier-face.tier-4 .mult-x { color: var(--aurora-pink); }
             .tier-face.tier-4 .tier-name { color: rgba(236,72,153,0.8); }
             .tier-face.tier-4 .tier-price-range { color: var(--aurora-pink); }
@@ -662,13 +785,18 @@ function getCosmicStyles({
             }
 
             .point-winfo {
-                background: #0f0b21;
-                border: 1px solid var(--obsidian-border);
+                background: var(--cosmic-card-bg);
+                border: 1px solid var(--cosmic-border);
                 border-radius: var(--ppf-radius);
                 padding: 50px 40px;
                 box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 40px rgba(139,92,246,0.1);
                 position: relative;
                 overflow: hidden;
+                transition: background-color 0.3s ease, border-color 0.3s ease;
+            }
+
+            :host([theme="light"]) .point-winfo {
+                box-shadow: 0 30px 60px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.8), 0 0 40px rgba(139,92,246,0.04);
             }
 
             .point-winfo::before {
@@ -703,33 +831,36 @@ function getCosmicStyles({
             }
 
             .point-winfo .text-center > p:first-child {
-                font-family: 'Orbitron', sans-serif;
-                font-size: 13px;
-                font-weight: 700;
+                font-family: var(--ppf-paragraph-font-family, 'Orbitron', sans-serif);
+                font-size: var(--ppf-paragraph-size, 13px);
+                font-weight: var(--ppf-paragraph-font-weight, 700);
+                font-style: var(--ppf-paragraph-font-style, normal);
                 text-transform: uppercase;
                 letter-spacing: 2px;
-                color: var(--aurora-pink);
+                color: var(--ppf-paragraph-color, var(--aurora-pink));
                 text-shadow: 0 0 8px rgba(236,72,153,0.5);
                 margin-bottom: 12px;
                 margin-top: 0;
             }
 
             .point-winfo h4 {
-                font-family: 'Orbitron', sans-serif;
-                font-size: 2.2rem;
-                font-weight: 900;
+                font-family: var(--ppf-heading-font-family, 'Orbitron', sans-serif);
+                font-size: var(--ppf-heading-size, 2.2rem);
+                font-weight: var(--ppf-heading-font-weight, 900);
+                font-style: var(--ppf-heading-font-style, normal);
                 text-transform: uppercase;
                 letter-spacing: 1px;
-                color: #fff;
+                color: var(--ppf-heading-color, var(--cosmic-text));
                 margin: 0 0 10px 0;
                 text-shadow: 0 0 15px rgba(139,92,246,0.3);
             }
 
             .point-winfo .text-center > p.sub-text {
-                font-family: 'Outfit', sans-serif;
-                font-weight: 300;
-                font-size: 14px;
-                color: rgba(226,232,240,0.8);
+                font-family: var(--ppf-subheading-font-family, 'Outfit', sans-serif);
+                font-weight: var(--ppf-subheading-font-weight, 300);
+                font-size: var(--ppf-subheading-size, 14px);
+                font-style: var(--ppf-subheading-font-style, normal);
+                color: var(--ppf-subheading-color, var(--cosmic-text-muted));
                 margin: 0 0 20px 0;
             }
 
@@ -790,23 +921,24 @@ function getCosmicStyles({
             }
 
             .point-winfo label.form-label {
-                font-family: 'Orbitron', sans-serif;
-                font-size: 12px;
-                font-weight: 700;
+                font-family: var(--ppf-paragraph-font-family, 'Orbitron', sans-serif);
+                font-size: var(--ppf-paragraph-size, 12px);
+                font-weight: var(--ppf-paragraph-font-weight, 700);
+                font-style: var(--ppf-paragraph-font-style, normal);
                 text-transform: uppercase;
                 letter-spacing: 1.5px;
-                color: rgba(226,232,240,0.7);
+                color: var(--ppf-paragraph-color, var(--cosmic-text-muted));
                 margin-bottom: 8px;
                 display: block;
             }
 
             .point-winfo input.form-control {
                 width: 100%;
-                background: #07040d;
-                border: 1px solid rgba(255,255,255,0.08);
+                background: var(--cosmic-input-bg);
+                border: 1px solid var(--cosmic-border);
                 border-radius: 8px;
                 height: 52px;
-                color: #fff;
+                color: var(--cosmic-text);
                 font-family: 'Orbitron', sans-serif;
                 font-size: 18px;
                 font-weight: 700;
@@ -820,7 +952,7 @@ function getCosmicStyles({
             .point-winfo input.form-control:focus {
                 border-color: var(--aurora-purple);
                 box-shadow: 0 0 12px rgba(139,92,246,0.4);
-                background: #0d091a;
+                background: var(--cosmic-input-focus-bg);
             }
 
             .point-winfo input.form-control.pnter-text {
@@ -861,6 +993,54 @@ function getCosmicStyles({
                 transform: translateY(-3px) scale(1.02);
                 box-shadow: 0 0 30px rgba(236,72,153,0.7);
                 background: linear-gradient(135deg, var(--aurora-cyan) 0%, var(--aurora-purple) 100%);
+            }
+
+            .section-divider {
+                height: 1px;
+                background: linear-gradient(90deg, transparent 0%, rgba(139,92,246,0) 8%, var(--aurora-purple) 35%, var(--aurora-cyan) 50%, var(--aurora-purple) 65%, rgba(139,92,246,0) 92%, transparent 100%);
+                box-shadow: 0 0 14px rgba(0,242,254,0.25);
+                margin: 40px 0;
+            }
+
+            /* Layout styling for Horizontal / Vertical layouts */
+            .cosmic-layout-horizontal {
+                display: grid;
+                grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr);
+                gap: 40px;
+                align-items: start;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .cosmic-layout-horizontal .section-divider {
+                display: none;
+            }
+
+            .cosmic-layout-horizontal .pricing-section,
+            .cosmic-layout-horizontal .epoint-form {
+                padding: 20px 0;
+            }
+
+            .cosmic-layout-horizontal .tier-cards-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .cosmic-layout-vertical {
+                display: block;
+            }
+
+            @media (max-width: 1024px) {
+                .cosmic-layout-horizontal {
+                    grid-template-columns: 1fr;
+                    gap: 20px;
+                }
+                .cosmic-layout-horizontal .section-divider {
+                    display: block;
+                }
+                .cosmic-layout-horizontal .tier-cards-grid {
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                }
             }
 
             @media (max-width: 768px) {
@@ -1138,11 +1318,13 @@ function getSharedStyles({
             }
 
             .topup-title {
-                font-size: 18px;
-                font-weight: 500;
+                font-size: var(--ppf-subheading-size, 18px);
+                font-weight: var(--ppf-subheading-font-weight, 500);
+                font-family: var(--ppf-subheading-font-family, inherit);
+                font-style: var(--ppf-subheading-font-style, normal);
                 text-transform: uppercase;
                 margin: 0;
-                color: var(--ppf-primary);
+                color: var(--ppf-subheading-color, var(--ppf-primary));
             }
 
             .topup-icon {
@@ -1151,27 +1333,34 @@ function getSharedStyles({
             }
 
             .topup-tagline {
-                font-size: clamp(28px, 4vw, 42px);
+                font-size: var(--ppf-title-size, clamp(28px, 4vw, 42px));
                 text-transform: uppercase;
                 margin: 0 0 20px 0;
-                font-weight: 700;
-                color: #ffffff;
+                font-weight: var(--ppf-title-font-weight, 700);
+                color: var(--ppf-title-color, #ffffff);
+                font-family: var(--ppf-title-font-family, inherit);
+                font-style: var(--ppf-title-font-style, normal);
                 line-height: 1.2;
             }
 
             .topup-intro {
-                font-size: 16px;
-                color: #949a98;
+                font-size: var(--ppf-subheading-size, 16px);
+                color: var(--ppf-subheading-color, #949a98);
+                font-family: var(--ppf-subheading-font-family, inherit);
+                font-weight: var(--ppf-subheading-font-weight, normal);
+                font-style: var(--ppf-subheading-font-style, normal);
                 margin: 0 0 16px 0;
                 line-height: 1.6;
             }
 
             .topup-disclaimer {
-                font-size: 14px;
-                color: #949a98;
+                font-size: var(--ppf-paragraph-size, 14px);
+                color: var(--ppf-paragraph-color, #949a98);
+                font-family: var(--ppf-paragraph-font-family, inherit);
+                font-weight: var(--ppf-paragraph-font-weight, normal);
+                font-style: var(--ppf-paragraph-font-style, italic);
                 margin: 0;
                 line-height: 1.6;
-                font-style: italic;
             }
 
             .recharge-card {
@@ -1187,16 +1376,21 @@ function getSharedStyles({
             }
 
             .recharge-title {
-                font-size: 24px;
+                font-size: var(--ppf-heading-size, 24px);
                 text-transform: uppercase;
                 margin: 0 0 12px 0;
-                font-weight: 700;
-                color: var(--ppf-text);
+                font-weight: var(--ppf-heading-font-weight, 700);
+                color: var(--ppf-heading-color, var(--ppf-text));
+                font-family: var(--ppf-heading-font-family, inherit);
+                font-style: var(--ppf-heading-font-style, normal);
             }
 
             .recharge-text {
-                font-size: 15px;
-                color: var(--ppf-muted);
+                font-size: var(--ppf-subheading-size, 15px);
+                color: var(--ppf-subheading-color, var(--ppf-muted));
+                font-family: var(--ppf-subheading-font-family, inherit);
+                font-weight: var(--ppf-subheading-font-weight, normal);
+                font-style: var(--ppf-subheading-font-style, normal);
                 margin: 0;
                 line-height: 1.6;
             }
