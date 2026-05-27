@@ -980,7 +980,7 @@ function getCosmicStyles({
                 font-size: 15px;
                 text-transform: uppercase;
                 letter-spacing: 2px;
-                padding: 14px 45px;
+                padding: 14px 25px;
                 border-radius: 4px;
                 background: linear-gradient(135deg, var(--aurora-purple) 0%, var(--aurora-pink) 100%);
                 color: #fff;
