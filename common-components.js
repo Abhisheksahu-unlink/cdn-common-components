@@ -1030,13 +1030,14 @@ function getCosmicStyles({
                 grid-template-columns: repeat(2, 1fr);
                 gap: 16px;
             }
-                .cosmic-container{
-                padding: 30px 30px;
-                }
+            .cosmic-container {
+                padding: 40px 30px;
+                width: 100%;
+                box-sizing: border-box;
+            }
 
             .cosmic-layout-vertical {
                 display: block;
-                padding: 30px 30px;
             }
 
             @media (max-width: 1024px) {
@@ -1053,6 +1054,7 @@ function getCosmicStyles({
             }
 
             @media (max-width: 768px) {
+                .cosmic-container { padding: 20px 15px; }
                 .point-winfo { padding: 30px 20px; }
                 .point-winfo::before, .point-winfo::after { display: none; }
                 .cosmic-form-row { flex-direction: column; align-items: stretch; }
