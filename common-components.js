@@ -193,75 +193,79 @@ class PointsPurchaseForm extends HTMLElement {
             })}
 
             <div class="cosmic-container cosmic-layout-${this.layout}">
-                <section class="pricing-section">
-                    <div class="container">
-                        <div class="sec-title text-center">
-                            <h2>${topupTagline}</h2>
-                        </div>
+                ${topupTagline ? `
+                <div class="cosmic-header text-center">
+                    <h2>${topupTagline}</h2>
+                </div>
+                ` : ''}
 
-                        <div class="tier-cards-grid">
-                            ${tierCards}
-                        </div>
-                    </div>
-                </section>
-
-                <div class="section-divider"></div>
-
-                <section class="epoint-form">
-                    <div class="container">
-                        <div class="point-winfo">
-                            <div class="text-center">
-                                <p>${topupDisclaimer}</p>
-                                <h4>${rechargeTitle}</h4>
-                                <p class="sub-text">${rechargeText}</p>
-                                <a href="javascript:void(0)" class="clck-winfo"><strong>Input Your Amount &amp; Recharge Today</strong></a>
+                <div class="cosmic-content">
+                    <section class="pricing-section">
+                        <div class="container">
+                            <div class="tier-cards-grid">
+                                ${tierCards}
                             </div>
-
-                            <form action="${this.action}" method="POST">
-                                <input type="hidden" name="_token" value="${this.csrf}">
-                                <input type="hidden" name="quant[1]" value="1">
-                                <input type="hidden" name="slug" value="points">
-
-                                <div class="cosmic-form-row">
-                                    <div class="curency-col">
-                                        <p class="curency_xicn">${this.currency}</p>
-                                    </div>
-
-                                    <div class="input-col">
-                                        <label class="form-label">Amount</label>
-                                        <input 
-                                            type="number" 
-                                            class="form-control" 
-                                            placeholder="Enter amount in ${this.currency}" 
-                                            min="1" 
-                                            name="price" 
-                                            id="price" 
-                                            required
-                                        >
-                                    </div>
-
-                                    <div class="input-col">
-                                        <label class="form-label">Points</label>
-                                        <input 
-                                            type="number" 
-                                            class="form-control pnter-text" 
-                                            placeholder="Number Of Points" 
-                                            min="1" 
-                                            name="points" 
-                                            id="points" 
-                                            required 
-                                            readonly
-                                        >
-                                    </div>
-                                </div>
-
-                                <div class="text-center" style="margin-top: 24px;">
-                                    <button class="default-button" type="submit">${this.buttonText}</button>
-                                </div>
-                            </form>
                         </div>
-                    </div>
-                </section>
+                    </section>
+
+                    <div class="section-divider"></div>
+
+                    <section class="epoint-form">
+                        <div class="container">
+                            <div class="point-winfo">
+                                <div class="text-center">
+                                    <p>${topupDisclaimer}</p>
+                                    <h4>${rechargeTitle}</h4>
+                                    <p class="sub-text">${rechargeText}</p>
+                                    <a href="javascript:void(0)" class="clck-winfo"><strong>Input Your Amount &amp; Recharge Today</strong></a>
+                                </div>
+
+                                <form action="${this.action}" method="POST">
+                                    <input type="hidden" name="_token" value="${this.csrf}">
+                                    <input type="hidden" name="quant[1]" value="1">
+                                    <input type="hidden" name="slug" value="points">
+
+                                    <div class="cosmic-form-row">
+                                        <div class="curency-col">
+                                            <p class="curency_xicn">${this.currency}</p>
+                                        </div>
+
+                                        <div class="input-col">
+                                            <label class="form-label">Amount</label>
+                                            <input 
+                                                type="number" 
+                                                class="form-control" 
+                                                placeholder="Enter amount in ${this.currency}" 
+                                                min="1" 
+                                                name="price" 
+                                                id="price" 
+                                                required
+                                            >
+                                        </div>
+
+                                        <div class="input-col">
+                                            <label class="form-label">Points</label>
+                                            <input 
+                                                type="number" 
+                                                class="form-control pnter-text" 
+                                                placeholder="Number Of Points" 
+                                                min="1" 
+                                                name="points" 
+                                                id="points" 
+                                                required 
+                                                readonly
+                                            >
+                                        </div>
+                                    </div>
+
+                                    <div class="text-center" style="margin-top: 24px;">
+                                        <button class="default-button" type="submit">${this.buttonText}</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </div>
             `;
             return;
@@ -569,7 +573,7 @@ function getCosmicStyles({
                 z-index: 0;
             }
 
-            .pricing-section .sec-title h2 {
+            .cosmic-header h2, .pricing-section .sec-title h2 {
                 font-family: var(--ppf-title-font-family, 'Orbitron', sans-serif);
                 font-size: var(--ppf-title-size, 2.2rem);
                 font-weight: var(--ppf-title-font-weight, 700);
@@ -1003,7 +1007,8 @@ function getCosmicStyles({
             }
 
             /* Layout styling for Horizontal / Vertical layouts */
-            .cosmic-layout-horizontal {
+            /* Layout styling for Horizontal / Vertical layouts */
+            .cosmic-layout-horizontal .cosmic-content {
                 display: grid;
                 grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr);
                 gap: 40px;
@@ -1018,7 +1023,7 @@ function getCosmicStyles({
 
             .cosmic-layout-horizontal .pricing-section,
             .cosmic-layout-horizontal .epoint-form {
-                padding: 20px 0;
+                padding: 0;
             }
 
             .cosmic-layout-horizontal .tier-cards-grid {
@@ -1031,7 +1036,7 @@ function getCosmicStyles({
             }
 
             @media (max-width: 1024px) {
-                .cosmic-layout-horizontal {
+                .cosmic-layout-horizontal .cosmic-content {
                     grid-template-columns: 1fr;
                     gap: 20px;
                 }
