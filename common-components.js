@@ -1033,6 +1033,7 @@ function getCosmicStyles({
 
             .cosmic-layout-vertical {
                 display: block;
+                padding: 30px 30px;
             }
 
             @media (max-width: 1024px) {
