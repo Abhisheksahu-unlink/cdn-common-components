@@ -1040,6 +1040,10 @@ function getCosmicStyles({
                 display: block;
             }
 
+            .cosmic-layout-vertical .cosmic-header h2 {
+                margin: 0;
+            }
+
             @media (max-width: 1024px) {
                 .cosmic-layout-horizontal .cosmic-content {
                     grid-template-columns: 1fr;
