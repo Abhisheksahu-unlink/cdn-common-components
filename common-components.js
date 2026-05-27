@@ -1030,6 +1030,9 @@ function getCosmicStyles({
                 grid-template-columns: repeat(2, 1fr);
                 gap: 16px;
             }
+                .cosmic-container{
+                padding: 30px 30px;
+                }
 
             .cosmic-layout-vertical {
                 display: block;
