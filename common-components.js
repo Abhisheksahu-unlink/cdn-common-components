@@ -1022,7 +1022,7 @@ function getCosmicStyles({
             }
 
             .cosmic-layout-horizontal .tier-cards-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
                 gap: 16px;
             }
 
